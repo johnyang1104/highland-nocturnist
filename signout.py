@@ -10,8 +10,8 @@ if 'patients' not in st.session_state:
     st.session_state.patients = {
         'Unseen': [],
         'Pending transfer': [],
-        'Hospitalist - day admit': '',
-        'Hospitalist - night admit': [],
+        'Hospitalist - Day admit': '',
+        'Hospitalist - Night admit': [],
         'Geriatric overnight - admission': [],
         'Geriatric overnight - consult': [],
         'Geriatric overnight - WCC': [],
@@ -25,7 +25,7 @@ if 'patients' not in st.session_state:
     st.session_state.none_selected = {
         'Unseen': False,
         'Pending transfer': False,
-        'Hospitalist - night admit': False,
+        'Hospitalist - Night admit': False,
         'Geriatric overnight - admission': False,
         'Geriatric overnight - consult': False,
         'Geriatric overnight - WCC': False,
@@ -41,7 +41,7 @@ if 'none_selected' not in st.session_state:
     st.session_state.none_selected = {
         'Unseen': False,
         'Pending transfer': False,
-        'Hospitalist - night admit': False,
+        'Hospitalist - Night admit': False,
         'Geriatric overnight - admission': False,
         'Geriatric overnight - consult': False,
         'Geriatric overnight - WCC': False,
@@ -66,8 +66,8 @@ st.write("---")
 groups_config = {
     'Unseen': {'fields': ['Number', 'Group', 'Name', 'MRN', 'Primary Care', 'Short Summary'], 'done_by': False, 'text_area': False},
     'Pending transfer': {'text_area': True, 'has_buttons': True},
-    'Hospitalist - day admit': {'text_area': True},
-    'Hospitalist - night admit': {'fields': ['Number', 'Name', 'MRN', 'Primary Care', 'Short Summary', 'Done by'], 'done_by': True, 'text_area': False},
+    'Hospitalist - Day admit': {'text_area': True},
+    'Hospitalist - Night admit': {'fields': ['Number', 'Name', 'MRN', 'Primary Care', 'Short Summary', 'Done by'], 'done_by': True, 'text_area': False},
     'Geriatric overnight - admission': {'fields': ['Number', 'Name', 'MRN', 'Primary Care', 'Short Summary', 'Done by'], 'done_by': True, 'text_area': False},
     'Geriatric overnight - consult': {'fields': ['Number', 'Name', 'MRN', 'Primary Care', 'Short Summary'], 'done_by': False, 'text_area': False},
     'Geriatric overnight - WCC': {'fields': ['Number', 'Name', 'MRN', 'Primary Care', 'Short Summary', 'Done by'], 'done_by': True, 'text_area': False},
@@ -157,12 +157,36 @@ def add_patient_form(group_name, config):
                 
                 for j, field in enumerate(config['fields']):
                     if field == 'Done by' and config.get('done_by', False):
-                        patient[field] = cols[j].selectbox(
-                            field,
-                            options=['', 'Nocturnist', 'APP', 'resident'],
-                            index=0 if patient.get(field, '') == '' else ['', 'Nocturnist', 'APP', 'resident'].index(patient.get(field, '')),
-                            key=f"{group_name}_{i}_{field}"
-                        )
+                        # Special dropdown for Done by with Other option
+                        done_by_options = ['', 'Nocturnist', 'APP', 'resident', 'Other']
+                        current_value = patient.get(field, '')
+                        
+                        # Check if current value is in options
+                        if current_value in done_by_options:
+                            selected_option = cols[j].selectbox(
+                                field,
+                                options=done_by_options,
+                                index=done_by_options.index(current_value),
+                                key=f"{group_name}_{i}_{field}_select"
+                            )
+                        else:
+                            # Current value is custom text, show "Other" as selected
+                            selected_option = cols[j].selectbox(
+                                field,
+                                options=done_by_options,
+                                index=done_by_options.index('Other') if current_value else 0,
+                                key=f"{group_name}_{i}_{field}_select"
+                            )
+                        
+                        if selected_option == 'Other':
+                            # Show text input for custom entry
+                            patient[field] = cols[j].text_input(
+                                "Custom Done by:",
+                                value=current_value if current_value not in done_by_options[:-1] else '',
+                                key=f"{group_name}_{i}_{field}_custom"
+                            )
+                        else:
+                            patient[field] = selected_option
                     elif field == 'Group' and group_name == 'Unseen':
                         patient[field] = cols[j].selectbox(
                             field,
