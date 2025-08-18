@@ -107,27 +107,78 @@ def add_patient_form(group_name, config):
                         st.rerun()
             else:
                 # Show text area when content exists
-                text_content = st.text_area(
-                    f"Paste content for {group_name}:",
-                    value=st.session_state.patients[group_name][0] if st.session_state.patients[group_name] else '',
-                    height=150,
-                    key=f"{group_name}_textarea"
-                )
-                if st.session_state.patients[group_name]:
+                current_content = st.session_state.patients[group_name][0] if st.session_state.patients[group_name] else ''
+                
+                col1, col2 = st.columns([4, 1])
+                
+                with col1:
+                    text_content = st.text_area(
+                        f"Paste content for {group_name}:",
+                        value=current_content,
+                        height=150,
+                        key=f"{group_name}_textarea",
+                        help="You can paste content and manually add numbers or edit text"
+                    )
+                
+                with col2:
+                    st.write("")  # Add spacing
+                    st.write("")  # Add spacing
+                    if st.button("Add Numbers", key=f"{group_name}_add_numbers"):
+                        # Add numbers to each line
+                        lines = text_content.split('\n')
+                        numbered_lines = []
+                        counter = 1
+                        for line in lines:
+                            if line.strip():  # Only number non-empty lines
+                                numbered_lines.append(f"{counter}. {line}")
+                                counter += 1
+                            else:
+                                numbered_lines.append(line)  # Keep empty lines as is
+                        numbered_content = '\n'.join(numbered_lines)
+                        st.session_state.patients[group_name][0] = numbered_content
+                        st.rerun()
+                
+                # Update content
+                if len(st.session_state.patients[group_name]) > 0:
                     st.session_state.patients[group_name][0] = text_content
+                else:
+                    st.session_state.patients[group_name] = [text_content]
                 
                 # Clear button
                 if st.button(f"Clear", key=f"{group_name}_clear"):
                     st.session_state.patients[group_name] = []
                     st.rerun()
         else:
-            # For other text areas (EOU, Other, Hospitalist - day admit)
-            text_content = st.text_area(
-                f"Paste content for {group_name}:",
-                value=st.session_state.patients[group_name],
-                height=150,
-                key=f"{group_name}_textarea"
-            )
+            # For other text areas (Hospitalist - Day admit, Other)
+            col1, col2 = st.columns([4, 1])
+            
+            with col1:
+                text_content = st.text_area(
+                    f"Paste content for {group_name}:",
+                    value=st.session_state.patients[group_name],
+                    height=150,
+                    key=f"{group_name}_textarea",
+                    help="You can paste content and manually add numbers or edit text"
+                )
+            
+            with col2:
+                st.write("")  # Add spacing
+                st.write("")  # Add spacing
+                if st.button("Add Numbers", key=f"{group_name}_add_numbers"):
+                    # Add numbers to each line
+                    lines = text_content.split('\n')
+                    numbered_lines = []
+                    counter = 1
+                    for line in lines:
+                        if line.strip():  # Only number non-empty lines
+                            numbered_lines.append(f"{counter}. {line}")
+                            counter += 1
+                        else:
+                            numbered_lines.append(line)  # Keep empty lines as is
+                    numbered_content = '\n'.join(numbered_lines)
+                    st.session_state.patients[group_name] = numbered_content
+                    st.rerun()
+            
             st.session_state.patients[group_name] = text_content
     else:
         # Individual patient fields
@@ -332,11 +383,14 @@ with report_container:
         if config.get('text_area', False):
             # For text area groups
             if config.get('has_buttons', False):
-                # Special handling for Pending transfer
+                # Special handling for Pending transfer and EOU
                 if len(st.session_state.patients[group_name]) > 0:
                     content = st.session_state.patients[group_name][0].strip()
                     if content:
-                        st.write(content)
+                        # Display with preserved line breaks
+                        for line in content.split('\n'):
+                            if line.strip():  # Only show non-empty lines
+                                st.write(line)
                         report_text += f"{content}\n"
                     else:
                         st.write("None")
@@ -348,10 +402,13 @@ with report_container:
                     st.write("None")
                     report_text += "None\n"
             else:
-                # Regular text area groups
+                # Regular text area groups (Hospitalist - Day admit, Other)
                 content = st.session_state.patients[group_name].strip()
                 if content:
-                    st.write(content)
+                    # Display with preserved line breaks
+                    for line in content.split('\n'):
+                        if line.strip():  # Only show non-empty lines
+                            st.write(line)
                     report_text += f"{content}\n"
                 else:
                     st.write("None")
