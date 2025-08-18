@@ -19,21 +19,8 @@ if 'patients' not in st.session_state:
         'Palliative': [],
         'Highland Family Medicine': [],
         'Vent': [],
-        'EOU': [],
+        'EOU': '',
         'Other': ''
-    }
-    st.session_state.none_selected = {
-        'Unseen': False,
-        'Pending transfer': False,
-        'Hospitalist - Night admit': False,
-        'Geriatric overnight - admission': False,
-        'Geriatric overnight - consult': False,
-        'Geriatric overnight - WCC': False,
-        'CMG/CCC': False,
-        'Palliative': False,
-        'Highland Family Medicine': False,
-        'Vent': False,
-        'EOU': False
     }
 
 # Initialize none_selected state
@@ -48,9 +35,12 @@ if 'none_selected' not in st.session_state:
         'CMG/CCC': False,
         'Palliative': False,
         'Highland Family Medicine': False,
-        'Vent': False,
-        'EOU': False
+        'Vent': False
     }
+
+# Initialize clear counter for forcing widget refresh
+if 'clear_counter' not in st.session_state:
+    st.session_state.clear_counter = 0
 
 st.title("Medical Signout List Generator")
 
@@ -65,7 +55,7 @@ st.write("---")
 # Define groups with their field requirements
 groups_config = {
     'Unseen': {'fields': ['Number', 'Group', 'Name', 'MRN', 'Primary Care', 'Short Summary'], 'done_by': False, 'text_area': False},
-    'Pending transfer': {'text_area': True, 'has_buttons': True},
+    'Pending transfer': {'fields': ['Number', 'Name', 'MRN', 'Short Summary'], 'done_by': False, 'text_area': False},
     'Hospitalist - Day admit': {'text_area': True},
     'Hospitalist - Night admit': {'fields': ['Number', 'Name', 'MRN', 'Primary Care', 'Short Summary', 'Done by'], 'done_by': True, 'text_area': False},
     'Geriatric overnight - admission': {'fields': ['Number', 'Name', 'MRN', 'Primary Care', 'Short Summary', 'Done by'], 'done_by': True, 'text_area': False},
@@ -75,7 +65,7 @@ groups_config = {
     'Palliative': {'fields': ['Number', 'Name', 'MRN', 'Primary Care', 'Short Summary', 'Done by'], 'done_by': True, 'text_area': False},
     'Highland Family Medicine': {'fields': ['Number', 'Name', 'MRN', 'Primary Care', 'Short Summary', 'Done by'], 'done_by': True, 'text_area': False},
     'Vent': {'fields': ['Number', 'Name', 'MRN', 'Primary Care', 'Short Summary', 'Done by'], 'done_by': True, 'text_area': False},
-    'EOU': {'text_area': True, 'has_buttons': True},
+    'EOU': {'text_area': True},
     'Other': {'text_area': True}
 }
 
@@ -86,35 +76,31 @@ def add_patient_form(group_name, config):
     if config.get('text_area', False):
         # Text area for copy-paste groups
         if config.get('has_buttons', False):
-            # For Pending transfer - show buttons first
-            if len(st.session_state.patients[group_name]) == 0:
-                # Show buttons when no content
-                col1, col2 = st.columns(2)
-                
-                # Add patient button (shows text area)
-                if col1.button(f"Add Patient", key=f"{group_name}_add"):
-                    st.session_state.patients[group_name].append('')
-                    st.session_state.none_selected[group_name] = False
-                    st.rerun()
-                
-                # None button logic
-                if st.session_state.none_selected.get(group_name, False):
-                    if col2.button(f"None ✓", key=f"{group_name}_none", type="primary"):
-                        pass
-                else:
-                    if col2.button(f"None", key=f"{group_name}_none"):
-                        st.session_state.none_selected[group_name] = True
-                        st.rerun()
+            # For groups with buttons - currently none since we removed them
+            pass
+        else:
+            # For text area groups (Hospitalist - Day admit, EOU, Other)
+            if group_name == 'Other':
+                # Other group - simple text area without Add Numbers button
+                current_value = st.session_state.patients.get(group_name, '')
+                text_content = st.text_area(
+                    f"Paste content for {group_name}:",
+                    value=current_value,
+                    height=150,
+                    key=f"{group_name}_textarea",
+                    help="You can paste content and edit text"
+                )
+                st.session_state.patients[group_name] = text_content
             else:
-                # Show text area when content exists
-                current_content = st.session_state.patients[group_name][0] if st.session_state.patients[group_name] else ''
-                
+                # For Hospitalist - Day admit and EOU - with Add Numbers button
                 col1, col2 = st.columns([4, 1])
                 
                 with col1:
+                    # Safe access to session state
+                    current_value = st.session_state.patients.get(group_name, '')
                     text_content = st.text_area(
                         f"Paste content for {group_name}:",
-                        value=current_content,
+                        value=current_value,
                         height=150,
                         key=f"{group_name}_textarea",
                         help="You can paste content and manually add numbers or edit text"
@@ -135,54 +121,17 @@ def add_patient_form(group_name, config):
                             else:
                                 numbered_lines.append(line)  # Keep empty lines as is
                         numbered_content = '\n'.join(numbered_lines)
-                        st.session_state.patients[group_name][0] = numbered_content
+                        st.session_state.patients[group_name] = numbered_content
                         st.rerun()
                 
-                # Update content
-                if len(st.session_state.patients[group_name]) > 0:
-                    st.session_state.patients[group_name][0] = text_content
-                else:
-                    st.session_state.patients[group_name] = [text_content]
-                
-                # Clear button
-                if st.button(f"Clear", key=f"{group_name}_clear"):
-                    st.session_state.patients[group_name] = []
-                    st.rerun()
-        else:
-            # For other text areas (Hospitalist - Day admit, Other)
-            col1, col2 = st.columns([4, 1])
-            
-            with col1:
-                text_content = st.text_area(
-                    f"Paste content for {group_name}:",
-                    value=st.session_state.patients[group_name],
-                    height=150,
-                    key=f"{group_name}_textarea",
-                    help="You can paste content and manually add numbers or edit text"
-                )
-            
-            with col2:
-                st.write("")  # Add spacing
-                st.write("")  # Add spacing
-                if st.button("Add Numbers", key=f"{group_name}_add_numbers"):
-                    # Add numbers to each line
-                    lines = text_content.split('\n')
-                    numbered_lines = []
-                    counter = 1
-                    for line in lines:
-                        if line.strip():  # Only number non-empty lines
-                            numbered_lines.append(f"{counter}. {line}")
-                            counter += 1
-                        else:
-                            numbered_lines.append(line)  # Keep empty lines as is
-                    numbered_content = '\n'.join(numbered_lines)
-                    st.session_state.patients[group_name] = numbered_content
-                    st.rerun()
-            
-            st.session_state.patients[group_name] = text_content
+                st.session_state.patients[group_name] = text_content
     else:
         # Individual patient fields
         st.write("")  # Add some spacing
+        
+        # Ensure the group exists in session state
+        if group_name not in st.session_state.patients:
+            st.session_state.patients[group_name] = []
         
         # Show existing patients
         patients_to_remove = []
@@ -337,26 +286,35 @@ def add_patient_form(group_name, config):
         col1, col2 = st.columns(2)
         
         # Add patient button
-        if col1.button(f"Add Patient", key=f"{group_name}_add"):
+        if col1.button(f"Add Patient", key=f"{group_name}_add_{st.session_state.clear_counter}"):
+            # Ensure the group exists before appending
+            if group_name not in st.session_state.patients:
+                st.session_state.patients[group_name] = []
             st.session_state.patients[group_name].append({})
-            st.session_state.none_selected[group_name] = False  # Reset none selection
+            if group_name in st.session_state.none_selected:
+                st.session_state.none_selected[group_name] = False  # Reset none selection
             st.rerun()
         
         # None button logic
-        if len(st.session_state.patients[group_name]) == 0:
+        if len(st.session_state.patients.get(group_name, [])) == 0:
+            # Force check: if we just cleared, make sure none_selected is False
+            none_selected_status = st.session_state.none_selected.get(group_name, False)
+            
             # Show None button with different styles based on selection
-            if st.session_state.none_selected.get(group_name, False):
+            if none_selected_status:
                 # None is selected - show with success style
-                if col2.button(f"None ✓", key=f"{group_name}_none", type="primary"):
+                if col2.button(f"None ✓", key=f"{group_name}_none_{st.session_state.clear_counter}", type="primary"):
                     pass  # Already selected
             else:
                 # None is not selected - show normal button
-                if col2.button(f"None", key=f"{group_name}_none"):
-                    st.session_state.none_selected[group_name] = True
+                if col2.button(f"None", key=f"{group_name}_none_{st.session_state.clear_counter}"):
+                    if group_name in st.session_state.none_selected:
+                        st.session_state.none_selected[group_name] = True
                     st.rerun()
         else:
             # Patients exist, so reset none selection and hide button
-            st.session_state.none_selected[group_name] = False
+            if group_name in st.session_state.none_selected:
+                st.session_state.none_selected[group_name] = False
             col2.write("")  # Empty space to maintain layout
 
 # Display all groups
@@ -383,26 +341,10 @@ with report_container:
         if config.get('text_area', False):
             # For text area groups
             if config.get('has_buttons', False):
-                # Special handling for Pending transfer and EOU
-                if len(st.session_state.patients[group_name]) > 0:
-                    content = st.session_state.patients[group_name][0].strip()
-                    if content:
-                        # Display with preserved line breaks
-                        for line in content.split('\n'):
-                            if line.strip():  # Only show non-empty lines
-                                st.write(line)
-                        report_text += f"{content}\n"
-                    else:
-                        st.write("None")
-                        report_text += "None\n"
-                elif st.session_state.none_selected.get(group_name, False):
-                    st.write("None")
-                    report_text += "None\n"
-                else:
-                    st.write("None")
-                    report_text += "None\n"
+                # Special handling for groups with buttons (currently none)
+                pass
             else:
-                # Regular text area groups (Hospitalist - Day admit, Other)
+                # Regular text area groups (Hospitalist - Day admit, EOU, Other)
                 content = st.session_state.patients[group_name].strip()
                 if content:
                     # Display with preserved line breaks
@@ -454,23 +396,3 @@ st.text_area(
     height=200,
     key="copy_text_area"
 )
-
-# Clear All Data Button
-st.write("---")
-if st.button("Clear All Data", type="secondary"):
-    st.session_state.patients = {
-        'Unseen': [],
-        'Pending transfer': '',
-        'Hospitalist - day admit': '',
-        'Hospitalist - night admit': [],
-        'Geriatric overnight - admission': [],
-        'Geriatric overnight - consult': [],
-        'Geriatric overnight - WCC': [],
-        'CMG/CCC': [],
-        'Palliative': [],
-        'Highland Family Medicine': [],
-        'Vent': [],
-        'EOU': '',
-        'Other': ''
-    }
-    st.rerun()
